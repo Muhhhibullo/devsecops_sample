@@ -22,11 +22,7 @@ jobs:
     - name: Run Bandit Scan
       run: bandit -ll -ii -r . -f json -o bandit-report.json
 
-    - name: Check if Bandit Report Exists
-      run: ls -l bandit-report.json
-
     - name: Upload Bandit Report
-      if: always()
       uses: actions/upload-artifact@v4
       with:
         name: bandit-findings
@@ -56,18 +52,14 @@ jobs:
         sarif-file: scout-report.sarif
         exit-code: true
 
-    - name: Check if Docker Scout Report Exists
-      run: ls -l scout-report.sarif
-
     - name: Upload Docker Scout Report
-      if: always()
       uses: actions/upload-artifact@v4
       with:
         name: docker-scout-findings
         path: scout-report.sarif
 
   dast_scan:
-    name: DAST Scan
+    name: DAST Scan with Nikto
     runs-on: ubuntu-latest
 
     steps:
@@ -76,22 +68,20 @@ jobs:
 
     - name: Deploy PyGoat
       run: |
-        docker pull pygoat/pygoat:latest
-        docker run --rm -d -p 8000:8000 pygoat/pygoat:latest
+        docker network create nikto-network
+        docker run --rm --name pygoat --network nikto-network -d -p 8000:8000 pygoat/pygoat:latest
 
-    - name: Perform DAST Scan with OWASP ZAP
-      uses: zaproxy/action-full-scan@v0.9.0
-      with:
-        target: "http://localhost:8000"
-        fail_action: true
-        artifact_name: zap-report
+    - name: Install Nikto
+      run: sudo apt-get update && sudo apt-get install -y nikto
 
-    - name: Check if ZAP Report Exists
-      run: ls -l zap-report
+    - name: Run Nikto Scan
+      run: |
+        nikto -h http://pygoat:8000 -o nikto-report.html -Format html
+      env:
+        DOCKER_HOST: "unix:///var/run/docker.sock"
 
-    - name: Upload ZAP Report
-      if: always()
+    - name: Upload Nikto Report
       uses: actions/upload-artifact@v4
       with:
-        name: zap-findings
-        path: zap-report
+        name: nikto-findings
+        path: nikto-report.html
