@@ -22,10 +22,10 @@ jobs:
     - name: Run Bandit Scan
       run: bandit -ll -ii -r . -f json -o bandit-report.json
 
-    - name: Upload Artifact
+    - name: Upload Bandit Report
       uses: actions/upload-artifact@v4
       with:
-        name: bandit-findings.json
+        name: bandit-findings
         path: bandit-report.json
 
   image_scan:
@@ -52,7 +52,7 @@ jobs:
         sarif-file: scout-report.sarif
         exit-code: true
 
-    - name: Upload Artifact
+    - name: Upload Docker Scout Report
       uses: actions/upload-artifact@v4
       with:
         name: docker-scout-findings
