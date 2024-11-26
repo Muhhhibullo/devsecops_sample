@@ -22,7 +22,11 @@ jobs:
     - name: Run Bandit Scan
       run: bandit -ll -ii -r . -f json -o bandit-report.json
 
+    - name: Check if Bandit Report Exists
+      run: ls -l bandit-report.json
+
     - name: Upload Bandit Report
+      if: always()
       uses: actions/upload-artifact@v4
       with:
         name: bandit-findings
@@ -52,7 +56,11 @@ jobs:
         sarif-file: scout-report.sarif
         exit-code: true
 
+    - name: Check if Docker Scout Report Exists
+      run: ls -l scout-report.sarif
+
     - name: Upload Docker Scout Report
+      if: always()
       uses: actions/upload-artifact@v4
       with:
         name: docker-scout-findings
@@ -78,7 +86,11 @@ jobs:
         fail_action: true
         artifact_name: zap-report
 
+    - name: Check if ZAP Report Exists
+      run: ls -l zap-report
+
     - name: Upload ZAP Report
+      if: always()
       uses: actions/upload-artifact@v4
       with:
         name: zap-findings
