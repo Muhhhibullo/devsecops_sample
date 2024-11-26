@@ -1,5 +1,6 @@
 name: CI
 
+# triggers pipeline when push is made to any branch (typical CI pipeline rule)
 on: [push]
 
 jobs:
@@ -20,15 +21,20 @@ jobs:
       run: pip install bandit
 
     - name: Run Bandit Scan
+      # safe report in json format
       run: bandit -ll -ii -r . -f json -o bandit-report.json
 
-    - name: Upload Bandit Report
-      uses: actions/upload-artifact@v4
+    - name: Upload Artifact
+      uses: actions/upload-artifact@v3
+      # execute this step no matter of previous status
+      if: always()
       with:
-        name: bandit-findings
+        # how artifacts will be named when exported
+        name: bandit-findings.json
         path: bandit-report.json
 
   image_scan:
+    # each new job runs in a new isolated environment
     name: Build and Run Image Scan
     runs-on: ubuntu-latest
 
@@ -37,7 +43,9 @@ jobs:
       uses: actions/checkout@v2
 
     - name: Set up Docker
-      uses: docker/setup-buildx-action@v2
+      uses: docker-practice/actions-setup-docker@v1
+      with:
+        docker_version: "20.10.7"
 
     - name: Build Docker Image
       run: docker build -f Dockerfile -t mytestapp:latest .
@@ -50,38 +58,50 @@ jobs:
         command: quickview,cves
         only-severities: critical,high
         sarif-file: scout-report.sarif
+        # exit code by default is true which means 0, add true to produce non success exit code when vulns are found
         exit-code: true
 
-    - name: Upload Docker Scout Report
-      uses: actions/upload-artifact@v4
+    - name: Upload Artifact
+      uses: actions/upload-artifact@v3
+      if: always()
       with:
         name: docker-scout-findings
         path: scout-report.sarif
 
   dast_scan:
-    name: DAST Scan with Nikto
+    name: Deploy and Run DAST Scan with Nikto
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout code
+    - name: Checkout My Repository
       uses: actions/checkout@v2
 
-    - name: Deploy PyGoat
-      run: |
-        docker network create nikto-network
-        docker run --rm --name pygoat --network nikto-network -d -p 8000:8000 pygoat/pygoat:latest
+    - name: Verify Directory Structure
+      run: ls -la
+
+    - name: Run Installer Script
+      run: bash installer.sh
+
+    - name: Apply Migrations
+      run: python3 manage.py migrate
+
+    - name: Run Server
+      run: nohup python3 manage.py runserver 0.0.0.0:8000 &
+
+    - name: Wait for Server to Start
+      run: sleep 10
+
+    - name: Check Server Availability
+      run: curl -I http://127.0.0.1:8000
 
     - name: Install Nikto
       run: sudo apt-get update && sudo apt-get install -y nikto
 
     - name: Run Nikto Scan
-      run: |
-        nikto -h http://pygoat:8000 -o nikto-report.html -Format html
-      env:
-        DOCKER_HOST: "unix:///var/run/docker.sock"
+      run: nikto -h http://127.0.0.1:8000 -o nikto-report.html -Format html
 
     - name: Upload Nikto Report
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v3
       with:
         name: nikto-findings
         path: nikto-report.html
